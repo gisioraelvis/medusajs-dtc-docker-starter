@@ -38,7 +38,7 @@
   </a>
 </p>
 
-A production-ready docker containerized monorepo starter for direct-to-consumer ecommerce store powered by Medusa and Next.js. Includes a fully featured storefront with product browsing, cart, checkout, customer accounts, and order management.
+A production-ready Docker monorepo starter for direct-to-consumer ecommerce stores powered by Medusa and Next.js. It includes a fully featured storefront with product browsing, cart, checkout, customer accounts, and order management.
 
 ## Features
 
@@ -50,7 +50,7 @@ A production-ready docker containerized monorepo starter for direct-to-consumer 
 - Customer accounts with order history and address management
 - Order transfer between accounts
 
-## Quick Commands
+## Quick Commands (Docker)
 
 | Task                    | Command                                                                                                              |
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------- |
@@ -173,6 +173,82 @@ docker compose ps
 - If the storefront exits with missing environment variable errors, set `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` in `apps/storefront/.env` and restart `storefront`.
 - If you run multiple Medusa Docker projects, use unique container names, ports, volume names, and network names.
 
+### Local Installation (Non-Docker)
+
+> **Prerequisites:**
+>
+> - [Node.js](https://nodejs.org/) v20+
+> - [PostgreSQL](https://www.postgresql.org/) v15+
+> - [pnpm](https://pnpm.io/) v10+
+
+From the project root:
+
+1. Install dependencies:
+
+```bash
+pnpm install
+```
+
+2. Set up backend environment:
+
+```bash
+cp apps/backend/.env.template apps/backend/.env
+```
+
+3. Update `apps/backend/.env` with your local database URL:
+
+```env
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/medusa-dtc-starter
+```
+
+4. Run backend migrations:
+
+```bash
+cd apps/backend
+pnpm medusa db:migrate
+```
+
+5. Create an admin user:
+
+```bash
+pnpm medusa user -e admin@test.com -p supersecret
+```
+
+6. Start backend:
+
+```bash
+pnpm dev
+```
+
+7. In a separate terminal from the project root, set up storefront env:
+
+```bash
+cp apps/storefront/.env.template apps/storefront/.env.local
+```
+
+8. Set your publishable key in `apps/storefront/.env.local`:
+
+```env
+NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=pk_...
+```
+
+9. Start storefront:
+
+```bash
+cd apps/storefront
+pnpm dev
+```
+
+The storefront runs on `http://localhost:8000`.
+
+To run backend and storefront together from the root:
+
+```bash
+pnpm dev
+```
+
 ## Resources
 
+- [Medusa Docs](https://docs.medusajs.com/learn)
 - [Medusa Docker Install](https://docs.medusajs.com/learn/installation/docker)
+- [Medusa DTC Starter Upstream README](https://github.com/medusajs/dtc-starter/blob/main/README.md)
