@@ -1,52 +1,62 @@
-# Agent Instructions — Medusa v2 + Next.js Docker Monorepo
+# Agent Instructions — Medusa v2 + Next.js Monorepo
 
-Monorepo: `apps/backend` (Medusa v2) + `apps/storefront` (Next.js 15). See [README.md](README.md) for full setup and Docker workflow.
+Monorepo: `apps/backend` (Medusa v2, :9000) + `apps/storefront` (Next.js 15, :8000).
 
-## Package Manager
+## Core Rules
 
-Always use **pnpm** (v10.11.1). Never `npm install` or `yarn`.
+- Use `pnpm` only (never npm/yarn).
+- Default scripts: `pnpm dev`, `pnpm build`, `pnpm docker:up`, `pnpm docker:down`.
+- Do not change `.npmrc` peer behavior or `pnpm-workspace.yaml` exclusions.
 
-```bash
-pnpm dev            # run backend + storefront concurrently
-pnpm build          # build all apps (via turbo)
-pnpm backend:seed   # seed backend database
-pnpm docker:up      # docker compose up --build -d
-pnpm docker:down    # docker compose down
-```
+## Docker + Env
 
-## Project Structure
+- Containers: `medusa_postgres:5432`, `medusa_redis:6379`, `medusa_backend:9000/5173`, `medusa_storefront:8000`.
+- Container workdir is `/server`; backend exec path is `/server/apps/backend`.
+- In Docker, storefront backend URL is `http://medusa:9000` (never localhost).
+- `apps/storefront/.env` must include `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY`.
+- Keep `start.sh` and `start-storefront.sh` on LF line endings.
+- Do not set `ssl: true` unless `sslmode: "disable"` is handled correctly.
 
-```
-apps/backend/    Medusa v2 API + admin UI  →  port 9000  (admin: /app,  HMR: 5173)
-apps/storefront/ Next.js 15 storefront    →  port 8000
-Dockerfile       single image for both services
-docker-compose.yml  postgres · redis · medusa · storefront
-```
+## Backend Rules (`apps/backend/src/**`)
 
-Detailed conventions for each app are in auto-applied instruction files:
+- API route file must be `route.ts`; folder path defines URL.
+- Use named method exports (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`), no default export.
+- Resolve services via container scope (`req.scope.resolve(...)`).
+- Modules in `src/modules/<name>/` include model + service + index registration.
+- Cross-module links in `src/links/` via `defineLink`; run migrations after link/schema changes.
+- Workflows in `src/workflows/` use step/workflow primitives + compensation.
+- Subscribers/jobs export default handler + named `config`.
+- Admin customizations go in `src/admin/widgets/` or `src/admin/routes/`.
+- Keep Node16-compatible TypeScript import style.
 
-- Backend (`apps/backend/src/**`): [backend-api.instructions.md](.github/instructions/backend-api.instructions.md)
-- Storefront (`apps/storefront/src/**`): [storefront.instructions.md](.github/instructions/storefront.instructions.md)
+## Storefront Rules (`apps/storefront/src/**`)
 
-## Docker
+- App Router paths are country-scoped under `src/app/[countryCode]/`.
+- Locale/region routing is controlled by `src/middleware.ts`.
+- Reuse singleton SDK in `src/lib/config.ts`.
+- Prefer server data functions in `src/lib/data/` with auth headers + cache options.
+- Use `HttpTypes` for Medusa response typing where possible.
+- Respect path aliases (`@lib/*`, `@modules/*`, `@pages/*`) and module boundaries.
+- Follow existing Tailwind/design-token patterns.
 
-| Container           | Port(s)    | Notes                       |
-| ------------------- | ---------- | --------------------------- |
-| `medusa_postgres`   | 5432       | DB: `medusa-store`          |
-| `medusa_redis`      | 6379       | shared by all Redis modules |
-| `medusa_backend`    | 9000, 5173 | API + admin                 |
-| `medusa_storefront` | 8000       |                             |
+## Skill Loading Map
 
-- **WORKDIR inside containers is `/server`** (not `/app`) — use `/server/apps/backend` in `exec` commands.
-- **`NEXT_PUBLIC_MEDUSA_BACKEND_URL`** must be `http://medusa:9000` (Docker hostname) inside compose — never `localhost`.
-- **Shell scripts (`start.sh`, `start-storefront.sh`) must use LF line endings** — enforced via `.gitattributes`. If a script isn't found at container start, check line endings.
+- `building-with-medusa`: backend modules/routes/workflows/models/links.
+- `building-admin-dashboard-customizations`: admin widgets/pages/forms/tables/data loading.
+- `building-storefronts`: storefront API integration + SDK + React Query patterns.
+- `storefront-best-practices`: all ecommerce storefront components/flows (cart/checkout/product/nav).
+- `db-generate`: generate migrations for schema/module changes.
+- `db-migrate`: apply migrations safely.
 
-## Environment Files
+## Merged Agentic Workflow
 
-`apps/backend/.env` and `apps/storefront/.env` are git-ignored. `NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY` in `apps/storefront/.env` is **required** — the storefront crashes at startup if missing.
-
-## Critical Constraints
-
-- **Do not set `ssl: true`** in `databaseDriverOptions` without also removing `sslmode: "disable"` — current config is development-only.
-- **`.npmrc` sets `auto-install-peers=true`**; do not add peer deps manually.
-- **`pnpm-workspace.yaml` excludes `apps/backend/.medusa/**`\*\* (generated build output) — do not modify this exclusion.
+- Use when building/fixing backend features, storefront integration, or migration-related changes.
+- Inputs: goal, target area (backend/storefront/full-stack), schema impact (yes/no), delivery mode.
+- Default mode: safety-first full workflow; prioritize correctness over speed.
+- Scope rule: backend first for full-stack work, then storefront/admin wiring.
+- Schema rule: if data model/link changes, run migration generation then migration; otherwise skip.
+- Runtime rule: honor Docker/local env differences before coding.
+- Risk rule: high-risk domains (`checkout`, `payment`, `auth`, `order`) require stronger edge-case checks.
+- Validation rule: targeted checks first, broader checks as needed; always with `pnpm`.
+- Completion gates: acceptance criteria met, backend/storefront contract consistent, migrations handled, no obvious regressions.
+- Reporting: summarize changed files, behavior impact, assumptions, and follow-up tasks.
