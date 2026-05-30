@@ -1,6 +1,6 @@
 "use client"
 
-import { isManual, isStripeLike } from "@lib/constants"
+import { isMpesa, isManual, isStripeLike } from "@lib/constants"
 import { placeOrder } from "@lib/data/cart"
 import { HttpTypes } from "@medusajs/types"
 import { Button } from "@modules/common/components/ui"
@@ -38,6 +38,14 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
     case isManual(paymentSession?.provider_id):
       return (
         <ManualTestPaymentButton notReady={notReady} data-testid={dataTestId} />
+      )
+    case isMpesa(paymentSession?.provider_id):
+      return (
+        <MpesaPaymentButton
+          notReady={notReady}
+          cart={cart}
+          data-testid={dataTestId}
+        />
       )
     default:
       return <Button disabled>Select a payment method</Button>
@@ -191,3 +199,87 @@ const ManualTestPaymentButton = ({ notReady }: { notReady: boolean }) => {
 }
 
 export default PaymentButton
+
+const MpesaPaymentButton = ({
+  cart,
+  notReady,
+  "data-testid": dataTestId,
+}: {
+  cart: HttpTypes.StoreCart
+  notReady: boolean
+  "data-testid"?: string
+}) => {
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [waitingForPayment, setWaitingForPayment] = useState(false)
+
+  const session = cart.payment_collection?.payment_sessions?.[0]
+  const checkoutRequestId = (session?.data as Record<string, unknown>)
+    ?.checkout_request_id as string | undefined
+
+  const handlePayment = async () => {
+    setSubmitting(true)
+    setErrorMessage(null)
+
+    // Poll M-Pesa status before placing the order
+    const backendUrl =
+      process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
+
+    if (checkoutRequestId) {
+      setWaitingForPayment(true)
+      try {
+        const resp = await fetch(
+          `${backendUrl}/store/mpesa/status/${encodeURIComponent(
+            checkoutRequestId
+          )}`
+        )
+        const result = await resp.json()
+        setWaitingForPayment(false)
+
+        if (result.status === "cancelled" || result.status === "error") {
+          setErrorMessage(
+            result.result_desc ||
+              "Payment was cancelled or failed. Please go back and try again."
+          )
+          setSubmitting(false)
+          return
+        }
+        // status "pending" → let authorizePayment handle it via STK Query
+      } catch {
+        // Non-fatal – proceed and let authorizePayment decide
+        setWaitingForPayment(false)
+      }
+    }
+
+    await placeOrder()
+      .catch((err) => {
+        setErrorMessage(
+          err.message ||
+            "Payment could not be confirmed. Please check your phone and try again."
+        )
+      })
+      .finally(() => {
+        setSubmitting(false)
+      })
+  }
+
+  return (
+    <>
+      <Button
+        disabled={notReady}
+        isLoading={submitting}
+        onClick={handlePayment}
+        size="large"
+        data-testid={dataTestId ?? "mpesa-payment-button"}
+      >
+        {waitingForPayment ? "Checking payment…" : "Place order"}
+      </Button>
+      {errorMessage && (
+        <ErrorMessage
+          error={errorMessage}
+          data-testid="mpesa-payment-error-message"
+        />
+      )}
+    </>
+  )
+}

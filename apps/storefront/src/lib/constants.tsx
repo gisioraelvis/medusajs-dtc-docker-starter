@@ -1,4 +1,4 @@
-import { CreditCard } from "@medusajs/icons"
+import { CreditCard, Phone } from "@medusajs/icons"
 import Bancontact from "@modules/common/icons/bancontact"
 import Ideal from "@modules/common/icons/ideal"
 import PayPal from "@modules/common/icons/paypal"
@@ -33,6 +33,10 @@ export const paymentInfoMap: Record<
     title: "Manual Payment",
     icon: <CreditCard />,
   },
+  pp_mpesa_mpesa: {
+    title: "M-Pesa",
+    icon: <Phone />,
+  },
   // Add more payment providers here
 }
 
@@ -48,6 +52,10 @@ export const isPaypal = (providerId?: string) => {
 }
 export const isManual = (providerId?: string) => {
   return providerId?.startsWith("pp_system_default")
+}
+
+export const isMpesa = (providerId?: string) => {
+  return providerId === "pp_mpesa_mpesa"
 }
 
 // Add currencies that don't need to be divided by 100
