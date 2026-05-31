@@ -103,7 +103,8 @@ export class MpesaClient {
       return Buffer.from(this.config.initiator_password).toString("base64");
     }
 
-    // Production: PKCS1v15 RSA encryption with Safaricom's public certificate
+    // Production: RSA PKCS#1 v1.5 (RSAES-PKCS1-v1_5) encryption with Safaricom's public certificate.
+    // This scheme is mandated by the Daraja API for the SecurityCredential field.
     const certPath = path.join(process.cwd(), "ProductionCertificate.cer");
     if (!fs.existsSync(certPath)) {
       throw new Error(

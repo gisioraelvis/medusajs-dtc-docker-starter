@@ -13,7 +13,7 @@ A [Medusa v2](https://medusajs.com) payment provider plugin for [M-Pesa Daraja A
 - **Refunds** via M-Pesa reversal (requires initiator credentials)
 - **Sandbox and production** environments
 - Phone number normalization — accepts `07XX`, `+254XX`, `254XX`, and bare `7XXXXXXXX` formats
-- RSA PKCS1v15 credential encryption for production reversals
+- RSA PKCS#1 v1.5 credential encryption for production reversals (required by Safaricom Daraja API)
 - TypeScript-first with exported option types
 
 ---
@@ -306,7 +306,7 @@ sequenceDiagram
     Admin->>Medusa: Create refund (order management)
     Medusa->>Medusa: refundPayment — reads mpesa_receipt_number
     Medusa->>Daraja: POST /mpesa/reversal/v1/request
-    Note over Medusa,Daraja: SecurityCredential = RSA-encrypted<br/>initiator_password (production)<br/>base64 (sandbox)
+    Note over Medusa,Daraja: SecurityCredential = RSA PKCS#1 v1.5<br/>initiator_password (production)<br/>base64 (sandbox)
     Daraja-->>Medusa: { ConversationID, ResponseCode: "0" }
     Medusa-->>Admin: Refund initiated (ConversationID stored)
 
@@ -345,9 +345,9 @@ Terminal codes (`1032`, `1037`, `2001`, `1019`, `9999`) will never succeed on re
 
 ### 1. RSA certificate for reversals
 
-Production M-Pesa reversals require the initiator password to be RSA-encrypted (PKCS1v15) with Safaricom's public certificate. Download `ProductionCertificate.cer` from the [Safaricom Developer Portal](https://developer.safaricom.co.ke) and place it in the **root of your Medusa backend** (same directory as `medusa-config.ts`, where `process.cwd()` resolves).
+Production M-Pesa reversals require the initiator password to be encrypted with Safaricom's public certificate using **RSA PKCS#1 v1.5** (`RSAES-PKCS1-v1_5`). This is Safaricom's mandated scheme for the `SecurityCredential` field — it is not configurable. Download `ProductionCertificate.cer` from the [Safaricom Developer Portal](https://developer.safaricom.co.ke) and place it in the **root of your Medusa backend** (same directory as `medusa-config.ts`, where `process.cwd()` resolves).
 
-The plugin handles encryption automatically — sandbox uses base64, production uses RSA PKCS1v15. You do not need to encrypt it yourself.
+The plugin handles encryption automatically — sandbox uses base64, production uses RSA PKCS#1 v1.5. You do not need to encrypt it yourself.
 
 ### 2. Make the callback URL publicly accessible
 
