@@ -232,6 +232,9 @@ importers:
         specifier: ^1.6.0
         version: 1.16.1
     devDependencies:
+      '@medusajs/admin-shared':
+        specifier: 2.15.2
+        version: 2.15.2
       '@medusajs/cli':
         specifier: 2.15.2
         version: 2.15.2(@types/node@20.19.26)

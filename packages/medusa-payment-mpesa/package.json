@@ -38,6 +38,7 @@
   },
   "scripts": {
     "build": "medusa plugin:build",
+    "dev": "medusa plugin:develop",
     "develop": "medusa plugin:develop",
     "publish:local": "medusa plugin:publish",
     "prepublishOnly": "pnpm run build"
@@ -46,6 +47,7 @@
     "axios": "^1.6.0"
   },
   "devDependencies": {
+    "@medusajs/admin-shared": "2.15.2",
     "@medusajs/cli": "2.15.2",
     "@medusajs/framework": "2.15.2",
     "@medusajs/medusa": "2.15.2",

@@ -6,7 +6,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "concurrently -k -n backend,storefront -c cyan,magenta \"pnpm backend:dev\" \"pnpm storefront:dev:wait\"",
+    "dev": "pnpm plugin:build && concurrently -k -n backend,plugin,storefront -c cyan,yellow,magenta \"pnpm backend:dev\" \"pnpm plugin:develop\" \"pnpm storefront:dev:wait\"",
     "build": "pnpm -r build",
     "start": "turbo start",
     "lint": "turbo lint",
@@ -15,6 +15,8 @@
     "backend:dev": "turbo dev --filter=@dtc/backend",
     "storefront:dev:wait": "wait-on tcp:127.0.0.1:9000 && pnpm storefront:dev",
     "storefront:dev": "turbo dev --filter=@dtc/storefront",
+    "plugin:build": "turbo build --filter=medusa-payment-mpesa",
+    "plugin:develop": "turbo dev --filter=medusa-payment-mpesa",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down"
   },
