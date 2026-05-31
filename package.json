@@ -1,7 +1,7 @@
 {
-  "name": "dtc-starter-monorepo",
+  "name": "medusa-dtc-starter-monorepo",
   "private": false,
-  "packageManager": "pnpm@10.11.1",
+  "packageManager": "pnpm@11.5.0+sha512.dbfcc4f81cf48597afd4bc391ffdf12c11f1a9fb83a395bfa6b0a2d9cc2fd8ffebafdb1ccbd529632153f793904c2615b7f09fe1a345473fd1c35845172a8eb1",
   "engines": {
     "node": ">=20"
   },
@@ -16,21 +16,6 @@
     "storefront:dev": "turbo dev --filter=@dtc/storefront",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down"
-  },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "19.0.5",
-      "@types/react-dom": "19.0.5"
-    },
-    "onlyBuiltDependencies": [
-      "@medusajs/telemetry",
-      "@swc/core",
-      "esbuild",
-      "msgpackr-extract",
-      "protobufjs",
-      "sharp",
-      "unrs-resolver"
-    ]
   },
   "devDependencies": {
     "prettier": "^3.2.5",
