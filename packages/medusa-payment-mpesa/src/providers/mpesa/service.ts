@@ -71,15 +71,18 @@ class MpesaPaymentProviderService extends AbstractPaymentProvider<MpesaOptions> 
     super(container, options);
     this.logger_ = container.logger;
     this.options_ = options;
-    this.client_ = new MpesaClient({
-      consumer_key: options.consumer_key,
-      consumer_secret: options.consumer_secret,
-      business_short_code: options.business_short_code,
-      pass_key: options.pass_key,
-      environment: options.environment,
-      initiator_name: options.initiator_name,
-      initiator_password: options.initiator_password,
-    });
+    this.client_ = new MpesaClient(
+      {
+        consumer_key: options.consumer_key,
+        consumer_secret: options.consumer_secret,
+        business_short_code: options.business_short_code,
+        pass_key: options.pass_key,
+        environment: options.environment,
+        initiator_name: options.initiator_name,
+        initiator_password: options.initiator_password,
+      },
+      this.logger_,
+    );
   }
 
   /**
@@ -91,6 +94,7 @@ class MpesaPaymentProviderService extends AbstractPaymentProvider<MpesaOptions> 
     if (/^254[0-9]{9}$/.test(stripped)) return stripped; // already correct
     if (/^0[0-9]{9}$/.test(stripped)) return "254" + stripped.slice(1); // 07XX → 254XX
     if (/^7[0-9]{8}$/.test(stripped)) return "254" + stripped; // 7XX → 2547XX (no leading 0)
+    if (/^01[0-9]{8}$/.test(stripped)) return "254" + stripped.slice(1); // 011X → 25411X
     return null;
   }
 

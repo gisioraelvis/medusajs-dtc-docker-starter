@@ -54,13 +54,16 @@ export const GET = async (
     // instance is not directly resolvable from the API route scope. The OAuth
     // token cache is local to this instance; for high-traffic deployments, consider
     // sharing the client via a module-scoped singleton.
-    const client = new MpesaClient({
-      consumer_key: consumerKey,
-      consumer_secret: consumerSecret,
-      business_short_code: businessShortCode,
-      pass_key: passKey,
-      environment,
-    });
+    const client = new MpesaClient(
+      {
+        consumer_key: consumerKey,
+        consumer_secret: consumerSecret,
+        business_short_code: businessShortCode,
+        pass_key: passKey,
+        environment,
+      },
+      logger,
+    );
 
     const result = await client.stkQuery(checkoutRequestId);
 
@@ -75,6 +78,7 @@ export const GET = async (
       case "1037": // Timeout waiting for user input
       case "2001": // Wrong PIN entered
       case "1019": // Transaction expired
+      case "9999": // Internal switch error — terminal, retry won't help
         status = "error";
         break;
       default:

@@ -158,19 +158,21 @@ sequenceDiagram
     Medusa-->>Storefront: payment session created (id = CheckoutRequestID)
     Daraja-->>Customer: STK Push prompt on phone
 
-    loop Poll every 3s (up to 90s)
-        Storefront->>Medusa: GET /store/mpesa/status/:checkoutRequestId
-        Medusa->>Daraja: POST /mpesa/stkpushquery/v1/query
-        Daraja-->>Medusa: { ResultCode }
-        Medusa-->>Storefront: { status: "pending" | "paid" | "cancelled" | "error" }
-    end
+    Note over Customer,Daraja: Customer has ~60s to accept STK Push
 
-    alt Customer pays (ResultCode 0)
-        Daraja->>Medusa: POST /store/mpesa/callback (async)
-        Medusa-->>Medusa: authorizePayment → status: authorized
+    Storefront->>Medusa: GET /store/mpesa/status/:checkoutRequestId
+    Medusa->>Daraja: POST /mpesa/stkpushquery/v1/query
+    Daraja-->>Medusa: { ResultCode }
+    Medusa-->>Storefront: { status: "pending" | "paid" | "cancelled" | "error" }
+
+    alt Customer paid (status: paid)
+        Daraja->>Medusa: POST /store/mpesa/callback (async, may arrive later)
         Storefront->>Medusa: placeOrder
-    else Customer cancels or times out
+        Medusa-->>Medusa: authorizePayment → status: authorized
+    else status: cancelled or error
         Storefront-->>Customer: Show error / retry
+    else status: pending
+        Storefront->>Medusa: placeOrder (authorizePayment re-queries Daraja)
     end
 ```
 
@@ -186,6 +188,7 @@ The provider normalizes all inputs to the `254XXXXXXXXX` (12-digit) format requi
 | International `+254`   | `+254712345678` | `254712345678` |
 | International `254`    | `254712345678`  | `254712345678` |
 | 9-digit without prefix | `712345678`     | `254712345678` |
+| Landline prefix `01`   | `0112345678`    | `254112345678` |
 
 > Numbers that don't match any of these patterns are rejected with a `400 Invalid Data` error.
 
@@ -261,9 +264,9 @@ await sdk.store.payment.initiatePaymentSession(cart, {
 });
 ```
 
-### 3. Poll for payment completion
+### 3. Check status before placing the order
 
-After checkout is submitted the customer has ~60 seconds to accept the M-Pesa prompt on their phone. Poll the status endpoint until the result is definitive:
+After the payment step is submitted, the customer has ~60 seconds to accept the M-Pesa STK Push prompt on their phone. Before calling `placeOrder`, do a single status check and surface terminal failures immediately:
 
 ```typescript
 const BACKEND_URL = process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL;
@@ -274,22 +277,26 @@ type MpesaStatusResponse = {
   result_desc: string | null;
 };
 
-async function waitForMpesaPayment(
+async function checkMpesaStatus(
   checkoutRequestId: string,
-): Promise<"paid" | "cancelled" | "error"> {
-  // Poll every 3 seconds, up to 90 seconds total
-  for (let i = 0; i < 30; i++) {
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    const res = await fetch(
-      `${BACKEND_URL}/store/mpesa/status/${checkoutRequestId}`,
-    );
-    const { status }: MpesaStatusResponse = await res.json();
-    if (status === "paid") return "paid";
-    if (status === "cancelled" || status === "error") return status;
-  }
-  return "error"; // timed out
+): Promise<MpesaStatusResponse> {
+  const res = await fetch(
+    `${BACKEND_URL}/store/mpesa/status/${encodeURIComponent(checkoutRequestId)}`,
+  );
+  return res.json();
 }
+
+// In your payment button handler:
+const { status, result_desc } = await checkMpesaStatus(checkoutRequestId);
+if (status === "cancelled" || status === "error") {
+  // Show result_desc to the customer and let them retry
+  throw new Error(result_desc ?? "Payment was not completed.");
+}
+// status "paid" or "pending" → proceed; authorizePayment re-queries Daraja on placeOrder
+await placeOrder();
 ```
+
+> **Tip:** The status endpoint can also be called in a polling loop (e.g. every 3 s for up to 90 s) if you want to give the customer real-time feedback while they interact with the STK Push prompt, before they click "Place order" e.g. show a message like `"Waiting for M-Pesa payment… (6s / 90s)"` that updates every poll. Break early if status becomes `paid`, or abort if it becomes `cancelled`/`error`. If it reaches 90 s with no success, let the customer click "Place order" anyway — the final `authorizePayment` server-side will do one last status check to confirm before placing the order. See [`MpesaPaymentButton`](./apps/storefront/src/modules/checkout/components/payment-button/index.tsx) in storefront for reference implementation.
 
 ---
 
@@ -330,11 +337,11 @@ These are the M-Pesa STK Push result codes returned by Daraja and how this plugi
 | Result Code | Meaning                        | `/store/mpesa/status` response | `authorizePayment` status |
 | ----------- | ------------------------------ | ------------------------------ | ------------------------- |
 | `0`         | Success                        | `paid`                         | `authorized`              |
-| `1032`      | Request cancelled by user      | `cancelled`                    | `error` (terminal)        |
+| `1032`      | Request cancelled by user      | `cancelled`                    | `canceled`                |
 | `1037`      | Timeout — user did not respond | `error`                        | `error` (terminal)        |
 | `2001`      | Wrong PIN entered              | `error`                        | `error` (terminal)        |
 | `1019`      | Transaction expired            | `error`                        | `error` (terminal)        |
-| `9999`      | Internal switch error          | `pending` → `error`            | `error` (terminal)        |
+| `9999`      | Internal switch error          | `error`                        | `error` (terminal)        |
 | other       | Transaction not yet settled    | `pending`                      | `pending`                 |
 
 Terminal codes (`1032`, `1037`, `2001`, `1019`, `9999`) will never succeed on retry and are mapped to `error` immediately rather than being polled again.

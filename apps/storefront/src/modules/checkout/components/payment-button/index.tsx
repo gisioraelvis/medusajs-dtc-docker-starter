@@ -211,7 +211,7 @@ const MpesaPaymentButton = ({
 }) => {
   const [submitting, setSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [waitingForPayment, setWaitingForPayment] = useState(false)
+  const [pollLabel, setPollLabel] = useState<string | null>(null)
 
   const session = cart.payment_collection?.payment_sessions?.[0]
   const checkoutRequestId = (session?.data as Record<string, unknown>)
@@ -220,34 +220,63 @@ const MpesaPaymentButton = ({
   const handlePayment = async () => {
     setSubmitting(true)
     setErrorMessage(null)
+    setPollLabel(null)
 
-    // Poll M-Pesa status before placing the order
     const backendUrl =
       process.env.NEXT_PUBLIC_MEDUSA_BACKEND_URL || "http://localhost:9000"
 
     if (checkoutRequestId) {
-      setWaitingForPayment(true)
-      try {
-        const resp = await fetch(
-          `${backendUrl}/store/mpesa/status/${encodeURIComponent(
-            checkoutRequestId
-          )}`
-        )
-        const result = await resp.json()
-        setWaitingForPayment(false)
+      // Poll every 3 s for up to 90 s, giving the customer real-time feedback
+      // while they interact with the STK Push prompt on their phone.
+      const MAX_ATTEMPTS = 30
+      const INTERVAL_MS = 3000
+      let finalStatus: string | null = null
 
-        if (result.status === "cancelled" || result.status === "error") {
-          setErrorMessage(
-            result.result_desc ||
-              "Payment was cancelled or failed. Please go back and try again."
+      setPollLabel("Waiting for M-Pesa payment…")
+
+      for (let i = 0; i < MAX_ATTEMPTS; i++) {
+        await new Promise((resolve) => setTimeout(resolve, INTERVAL_MS))
+        try {
+          const resp = await fetch(
+            `${backendUrl}/store/mpesa/status/${encodeURIComponent(
+              checkoutRequestId
+            )}`
           )
-          setSubmitting(false)
-          return
+          const result: {
+            status: "paid" | "pending" | "cancelled" | "error"
+            result_desc: string | null
+          } = await resp.json()
+
+          if (result.status === "paid") {
+            finalStatus = "paid"
+            break
+          }
+          if (result.status === "cancelled" || result.status === "error") {
+            setPollLabel(null)
+            setErrorMessage(
+              result.result_desc ||
+                "Payment was cancelled or failed. Please go back and try again."
+            )
+            setSubmitting(false)
+            return
+          }
+          // "pending" → update label with elapsed time and keep polling
+          const elapsed = ((i + 1) * INTERVAL_MS) / 1000
+          setPollLabel(
+            `Waiting for M-Pesa payment… (${elapsed}s / ${
+              MAX_ATTEMPTS * (INTERVAL_MS / 1000)
+            }s)`
+          )
+        } catch {
+          // Network hiccup — keep polling, don't abort
         }
-        // status "pending" → let authorizePayment handle it via STK Query
-      } catch {
-        // Non-fatal – proceed and let authorizePayment decide
-        setWaitingForPayment(false)
+      }
+
+      setPollLabel(null)
+
+      if (!finalStatus) {
+        // Timed out — let authorizePayment do a final STK query on placeOrder
+        // rather than blocking the customer entirely.
       }
     }
 
@@ -272,7 +301,7 @@ const MpesaPaymentButton = ({
         size="large"
         data-testid={dataTestId ?? "mpesa-payment-button"}
       >
-        {waitingForPayment ? "Checking payment…" : "Place order"}
+        {pollLabel ?? "Place order"}
       </Button>
       {errorMessage && (
         <ErrorMessage
