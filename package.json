@@ -6,19 +6,22 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm -r dev",
+    "dev": "concurrently -k -n backend,storefront -c cyan,magenta \"pnpm backend:dev\" \"pnpm storefront:dev:wait\"",
     "build": "pnpm -r build",
     "start": "turbo start",
     "lint": "turbo lint",
     "test": "turbo test",
     "backend:seed": "turbo seed --filter=@dtc/backend",
     "backend:dev": "turbo dev --filter=@dtc/backend",
+    "storefront:dev:wait": "wait-on tcp:127.0.0.1:9000 && pnpm storefront:dev",
     "storefront:dev": "turbo dev --filter=@dtc/storefront",
     "docker:up": "docker compose up --build -d",
     "docker:down": "docker compose down"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "prettier": "^3.2.5",
-    "turbo": "^2.0.14"
+    "turbo": "^2.0.14",
+    "wait-on": "^8.0.3"
   }
 }
