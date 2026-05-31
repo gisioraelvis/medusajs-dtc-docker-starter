@@ -3,6 +3,12 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 
+/** Minimal logger interface so MpesaClient can log without a hard framework dependency */
+interface ClientLogger {
+  error(message: string): void;
+  warn(message: string): void;
+}
+
 export interface MpesaConfig {
   consumer_key: string;
   consumer_secret: string;
@@ -48,9 +54,11 @@ export class MpesaClient {
   private httpClient: AxiosInstance;
   private accessToken: string | null = null;
   private tokenExpiry: Date | null = null;
+  private logger?: ClientLogger;
 
-  constructor(config: MpesaConfig) {
+  constructor(config: MpesaConfig, logger?: ClientLogger) {
     this.config = config;
+    this.logger = logger;
     this.baseUrl =
       config.environment === "production"
         ? "https://api.safaricom.co.ke"
@@ -138,7 +146,15 @@ export class MpesaClient {
         Date.now() + parseInt(response.data.expires_in) * 1000,
       );
     } catch (error) {
-      this.handleError(error as AxiosError, "generate OAuth token");
+      const err = error as AxiosError;
+      // Log raw details so network-level failures (ETIMEDOUT, ECONNREFUSED etc.) are visible
+      this.logger?.error(
+        `[Mpesa] OAuth raw error — code: ${err.code ?? "none"}, ` +
+          `status: ${err.response?.status ?? "no response"}, ` +
+          `message: ${err.message ?? "empty"}, ` +
+          `data: ${JSON.stringify(err.response?.data ?? null)}`,
+      );
+      this.handleError(err, "generate OAuth token");
     }
   }
 
@@ -146,11 +162,39 @@ export class MpesaClient {
     const responseData = error.response?.data as
       | Record<string, unknown>
       | undefined;
+
+    // Daraja returns errors in two formats:
+    // 1. { errorCode, errorMessage } — most API / credential errors
+    // 2. { fault: { faultstring, detail: { errorcode } } } — gateway / OAuth token errors
+    const faultData = responseData?.fault as
+      | Record<string, unknown>
+      | undefined;
+
+    // Network-level error code (ETIMEDOUT, ECONNREFUSED, ECONNABORTED, etc.)
+    const networkCode = error.code;
+
     const message =
       (responseData?.errorMessage as string) ||
+      (faultData?.faultstring as string) ||
       error.message ||
-      `Mpesa API error during ${operation}`;
-    throw new Error(`[Mpesa] ${operation} failed: ${message}`);
+      (networkCode
+        ? `${networkCode}: network error reaching Daraja API`
+        : `Mpesa API error during ${operation}`);
+
+    // Include HTTP status and network error code for easy log scanning
+    const statusPart = error.response?.status
+      ? ` [HTTP ${error.response.status}]`
+      : "";
+    const codePart = networkCode ? ` [${networkCode}]` : "";
+
+    // Append raw Daraja response so it appears in backend logs
+    const detail = responseData
+      ? ` — Daraja response: ${JSON.stringify(responseData)}`
+      : "";
+
+    throw new Error(
+      `[Mpesa] ${operation} failed:${statusPart}${codePart} ${message}${detail}`,
+    );
   }
 
   /**
@@ -185,6 +229,10 @@ export class MpesaClient {
       );
       return response.data;
     } catch (error) {
+      // Re-throw errors already formatted by handleError (e.g. from ensureToken interceptor)
+      // to prevent double-wrapping that obscures the original Daraja response.
+      if (error instanceof Error && error.message.startsWith("[Mpesa]"))
+        throw error;
       return this.handleError(error as AxiosError, "STK push");
     }
   }
@@ -208,6 +256,8 @@ export class MpesaClient {
       );
       return response.data;
     } catch (error) {
+      if (error instanceof Error && error.message.startsWith("[Mpesa]"))
+        throw error;
       return this.handleError(error as AxiosError, "STK query");
     }
   }
@@ -249,6 +299,8 @@ export class MpesaClient {
       );
       return response.data;
     } catch (error) {
+      if (error instanceof Error && error.message.startsWith("[Mpesa]"))
+        throw error;
       return this.handleError(error as AxiosError, "reversal");
     }
   }

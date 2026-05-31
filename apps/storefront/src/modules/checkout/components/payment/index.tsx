@@ -37,7 +37,23 @@ const Payment = ({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     activeSession?.provider_id ?? ""
   )
-  const [mpesaPhone, setMpesaPhone] = useState<string>("")
+  const [mpesaPhone, setMpesaPhone] = useState<string>(() => {
+    // Pre-populate from existing session data (user navigating back)
+    const existingPhone = (activeSession?.data as Record<string, unknown>)
+      ?.phone_number as string | undefined
+    // Fall back to shipping address phone
+    return existingPhone || cart.shipping_address?.phone || ""
+  })
+
+  // Re-sync when M-Pesa is selected and the field is empty
+  // (e.g. shipping address was filled after the payment step was first opened)
+  useEffect(() => {
+    if (isMpesa(selectedPaymentMethod) && !mpesaPhone) {
+      const fallback = cart.shipping_address?.phone || ""
+      if (fallback) setMpesaPhone(fallback)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPaymentMethod, cart.shipping_address?.phone])
 
   // Validates Kenyan M-Pesa phone numbers: 254XXXXXXXXX / 07XXXXXXXXX / +254XXXXXXXXX
   const mpesaPhoneValid =
