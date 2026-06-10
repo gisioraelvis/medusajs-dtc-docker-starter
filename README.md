@@ -8,7 +8,7 @@
   </a>
 </p>
 <h1 align="center">
-  Medusa Containerized DTC Starter
+  Medusa DTC Docker Containerized Starter
 </h1>
 
 <h4 align="center">
@@ -84,8 +84,8 @@ A production-ready Docker monorepo starter for direct-to-consumer ecommerce stor
 1. Clone this repository:
 
 ```bash
-git clone https://github.com/gisioraelvis/medusajs-containerized-starter.git
-cd medusajs-containerized-starter
+git clone https://github.com/gisioraelvis/medusajs-dtc-docker-starter.git
+cd medusajs-dtc-docker-starter
 ```
 
 2. Create environment files:
