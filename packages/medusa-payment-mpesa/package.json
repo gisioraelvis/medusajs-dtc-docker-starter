@@ -6,13 +6,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/gisioraelvis/medusajs-dtc-docker-starter/packages/medusa-payment-mpesa.git"
+    "url": "git+https://github.com/gisioraelvis/medusajs-dtc-docker-starter.git",
+    "directory": "packages/medusa-payment-mpesa"
   },
   "bugs": {
-    "url": "https://github.com/gisioraelvis/medusajs-dtc-docker-starter/packages/medusa-payment-mpesa/issues"
+    "url": "https://github.com/gisioraelvis/medusajs-dtc-docker-starter/issues"
   },
-  "homepage": "https://github.com/gisioraelvis/medusajs-dtc-docker-starter/packages/medusa-payment-mpesa/README.md",
-  "keywords": [
+  "homepage": "https://github.com/gisioraelvis/medusajs-dtc-docker-starter/tree/main/packages/medusa-payment-mpesa#readme"
     "medusa-plugin-integration",
     "medusa-v2",
     "medusa-plugin-payment",
