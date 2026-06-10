@@ -1,17 +1,17 @@
 {
   "name": "medusa-payment-mpesa",
   "version": "1.0.0",
-  "description": "Medusa v2 M-Pesa (Safaricom Daraja) payment provider — STK Push, polling, and refunds",
-  "author": "",
+  "description": "Medusa v2 M-Pesa (Safaricom Daraja) payment provider — STK Push, polling and refunds",
+  "author": "Elvis Gisiora <gisioraelvis20@gmail.com>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/your-org/medusa-payment-mpesa.git"
+    "url": "git+https://github.com/gisioraelvis/medusajs-dtc-docker-starter/packages/medusa-payment-mpesa.git"
   },
   "bugs": {
-    "url": "https://github.com/your-org/medusa-payment-mpesa/issues"
+    "url": "https://github.com/gisioraelvis/medusajs-dtc-docker-starter/packages/medusa-payment-mpesa/issues"
   },
-  "homepage": "https://github.com/your-org/medusa-payment-mpesa#readme",
+  "homepage": "https://github.com/gisioraelvis/medusajs-dtc-docker-starter/packages/medusa-payment-mpesa/README.md",
   "keywords": [
     "medusa-plugin-integration",
     "medusa-v2",

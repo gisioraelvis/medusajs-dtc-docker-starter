@@ -1,4 +1,4 @@
-# medusa-payment-mpesa
+# Medusa M-Pesa Payment Provider
 
 [![npm version](https://img.shields.io/npm/v/medusa-payment-mpesa)](https://www.npmjs.com/package/medusa-payment-mpesa)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
