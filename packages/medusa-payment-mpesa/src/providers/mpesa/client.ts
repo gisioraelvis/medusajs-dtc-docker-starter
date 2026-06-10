@@ -116,8 +116,8 @@ export class MpesaClient {
     const certPath = path.join(process.cwd(), "ProductionCertificate.cer");
     if (!fs.existsSync(certPath)) {
       throw new Error(
-        "[Mpesa] ProductionCertificate.cer not found in project root. " +
-          "Download it from https://developer.safaricom.co.ke and place it in apps/backend/.",
+        `[Mpesa] ProductionCertificate.cer not found at "${certPath}". ` +
+          "Download it from https://developer.safaricom.co.ke and place it in the current working directory (process.cwd()) or mount it there in your deployment.",
       );
     }
     const cert = fs.readFileSync(certPath);
