@@ -20,6 +20,31 @@ module.exports = defineConfig({
   },
   modules: [
     {
+      resolve: "@medusajs/medusa/payment",
+      options: {
+        providers: [
+          {
+            resolve: "medusa-payment-mpesa/providers/mpesa",
+            id: "mpesa",
+            options: {
+              consumer_key: process.env.MPESA_CONSUMER_KEY,
+              consumer_secret: process.env.MPESA_CONSUMER_SECRET,
+              business_short_code: process.env.MPESA_BUSINESS_SHORT_CODE,
+              pass_key: process.env.MPESA_PASS_KEY,
+              environment: process.env.MPESA_ENVIRONMENT || "sandbox",
+              callback_base_url:
+                process.env.MPESA_CALLBACK_BASE_URL ||
+                process.env.BACKEND_URL ||
+                "http://localhost:9000",
+              initiator_name: process.env.MPESA_INITIATOR_NAME,
+              initiator_password: process.env.MPESA_INITIATOR_PASSWORD,
+              webhook_secret: process.env.MPESA_WEBHOOK_SECRET,
+            },
+          },
+        ],
+      },
+    },
+    {
       resolve: "@medusajs/medusa/event-bus-redis",
       options: { redisUrl: process.env.REDIS_URL },
     },

@@ -60,3 +60,7 @@ Monorepo: `apps/backend` (Medusa v2, :9000) + `apps/storefront` (Next.js 15, :80
 - Validation rule: targeted checks first, broader checks as needed; always with `pnpm`.
 - Completion gates: acceptance criteria met, backend/storefront contract consistent, migrations handled, no obvious regressions.
 - Reporting: summarize changed files, behavior impact, assumptions, and follow-up tasks.
+
+## References
+
+- [Medusa LLM Friendly Docs](https://docs.medusajs.com/llms.txt)

@@ -1,4 +1,5 @@
 const checkEnvVariables = require("./check-env-variables")
+const path = require("path")
 
 checkEnvVariables()
 
@@ -13,6 +14,9 @@ const S3_PATHNAME = process.env.MEDUSA_CLOUD_S3_PATHNAME
  */
 const nextConfig = {
   reactStrictMode: true,
+  turbopack: {
+    root: path.resolve(__dirname, "../.."),
+  },
   logging: {
     fetches: {
       fullUrl: true,

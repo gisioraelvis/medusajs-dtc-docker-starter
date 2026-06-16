@@ -1,6 +1,6 @@
 "use client"
 import { RadioGroup } from "@headlessui/react"
-import { isStripeLike, paymentInfoMap } from "@lib/constants"
+import { isMpesa, isStripeLike, paymentInfoMap } from "@lib/constants"
 import { initiatePaymentSession } from "@lib/data/cart"
 import { CheckCircleSolid, CreditCard } from "@medusajs/icons"
 import ErrorMessage from "@modules/checkout/components/error-message"
@@ -37,6 +37,28 @@ const Payment = ({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(
     activeSession?.provider_id ?? ""
   )
+  const [mpesaPhone, setMpesaPhone] = useState<string>(() => {
+    // Pre-populate from existing session data (user navigating back)
+    const existingPhone = (activeSession?.data as Record<string, unknown>)
+      ?.phone_number as string | undefined
+    // Fall back to shipping address phone
+    return existingPhone || cart.shipping_address?.phone || ""
+  })
+
+  // Re-sync when M-Pesa is selected and the field is empty
+  // (e.g. shipping address was filled after the payment step was first opened)
+  useEffect(() => {
+    if (isMpesa(selectedPaymentMethod) && !mpesaPhone) {
+      const fallback = cart.shipping_address?.phone || ""
+      if (fallback) setMpesaPhone(fallback)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPaymentMethod, cart.shipping_address?.phone])
+
+  // Validates Kenyan M-Pesa phone numbers: 254XXXXXXXXX / 07XXXXXXXXX / +254XXXXXXXXX
+  const mpesaPhoneValid =
+    isMpesa(selectedPaymentMethod) &&
+    /^(254[0-9]{9}|0[0-9]{9}|\+254[0-9]{9})$/.test(mpesaPhone.trim())
 
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -46,6 +68,9 @@ const Payment = ({
 
   const setPaymentMethod = async (method: string) => {
     setError(null)
+    if (method !== selectedPaymentMethod) {
+      setMpesaPhone("") // reset phone when switching providers
+    }
     setSelectedPaymentMethod(method)
     if (isStripeLike(method)) {
       await initiatePaymentSession(cart, {
@@ -55,11 +80,15 @@ const Payment = ({
   }
 
   const paidByGiftcard = !!(
-    (cart as unknown as Record<string, unknown>)?.gift_cards && ((cart as unknown as Record<string, unknown>)?.gift_cards as unknown[])?.length > 0 && cart?.total === 0
+    (cart as unknown as Record<string, unknown>)?.gift_cards &&
+    ((cart as unknown as Record<string, unknown>)?.gift_cards as unknown[])
+      ?.length > 0 &&
+    cart?.total === 0
   )
 
   const paymentReady =
-    (activeSession && (cart?.shipping_methods?.length ?? 0) !== 0) || paidByGiftcard
+    (activeSession && (cart?.shipping_methods?.length ?? 0) !== 0) ||
+    paidByGiftcard
 
   const createQueryString = useCallback(
     (name: string, value: string) => {
@@ -83,12 +112,21 @@ const Payment = ({
       const shouldInputCard =
         isStripeLike(selectedPaymentMethod) && !activeSession
 
+      const sessionPhoneNumber = (
+        activeSession?.data as Record<string, unknown>
+      )?.phone_number as string | undefined
+
       const checkActiveSession =
-        activeSession?.provider_id === selectedPaymentMethod
+        activeSession?.provider_id === selectedPaymentMethod &&
+        (!isMpesa(selectedPaymentMethod) ||
+          sessionPhoneNumber === mpesaPhone)
 
       if (!checkActiveSession) {
         await initiatePaymentSession(cart, {
           provider_id: selectedPaymentMethod,
+          ...(isMpesa(selectedPaymentMethod) && {
+            data: { phone_number: mpesaPhone },
+          }),
         })
       }
 
@@ -168,6 +206,36 @@ const Payment = ({
                   </div>
                 ))}
               </RadioGroup>
+
+              {isMpesa(selectedPaymentMethod) && (
+                <div className="mt-4 flex flex-col gap-y-2">
+                  <Text className="txt-medium-plus text-ui-fg-base">
+                    M-Pesa Phone Number
+                  </Text>
+                  <input
+                    type="tel"
+                    placeholder="e.g. 0712345678 or 254712345678"
+                    value={mpesaPhone}
+                    onChange={(e) => setMpesaPhone(e.target.value.trim())}
+                    className="w-full border border-ui-border-base rounded-md p-3 txt-medium text-ui-fg-base focus:outline-none focus:ring-2 focus:ring-ui-border-interactive"
+                    data-testid="mpesa-phone-input"
+                    autoComplete="tel"
+                    pattern="(254[0-9]{9}|0[0-9]{9}|\+254[0-9]{9})"
+                  />
+                  {mpesaPhone.trim() && !mpesaPhoneValid && (
+                    <Text className="txt-small text-red-500">
+                      Enter a valid Kenyan number: 07XXXXXXXX, 254XXXXXXXXX, or
+                      +254XXXXXXXXX
+                    </Text>
+                  )}
+                  {!mpesaPhone.trim() && (
+                    <Text className="txt-small text-ui-fg-subtle">
+                      Enter the M-Pesa registered number. You will receive an
+                      STK Push prompt.
+                    </Text>
+                  )}
+                </div>
+              )}
             </>
           )}
 
@@ -197,7 +265,8 @@ const Payment = ({
             isLoading={isLoading}
             disabled={
               (isStripeLike(selectedPaymentMethod) && !cardComplete) ||
-              (!selectedPaymentMethod && !paidByGiftcard)
+              (!selectedPaymentMethod && !paidByGiftcard) ||
+              (isMpesa(selectedPaymentMethod) && !mpesaPhoneValid)
             }
             data-testid="submit-payment-button"
           >

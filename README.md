@@ -8,7 +8,7 @@
   </a>
 </p>
 <h1 align="center">
-  Medusa Containerized DTC Starter
+  Medusa DTC Docker Containerized Starter
 </h1>
 
 <h4 align="center">
@@ -65,6 +65,12 @@ A production-ready Docker monorepo starter for direct-to-consumer ecommerce stor
 | Start with root script  | `pnpm docker:up`                                                                                                     |
 | Stop with root script   | `pnpm docker:down`                                                                                                   |
 
+## Quick Commands (Local)
+
+| Task                                        | Command        |
+| ------------------------------------------- | -------------- |
+| Start backend + storefront (backend first)  | `pnpm dev`     |
+
 ## Getting Started
 
 ### Docker Containerized Installation
@@ -78,8 +84,8 @@ A production-ready Docker monorepo starter for direct-to-consumer ecommerce stor
 1. Clone this repository:
 
 ```bash
-git clone https://github.com/gisioraelvis/medusajs-containerized-starter.git
-cd medusajs-containerized-starter
+git clone https://github.com/gisioraelvis/medusajs-dtc-docker-starter.git
+cd medusajs-dtc-docker-starter
 ```
 
 2. Create environment files:
@@ -204,48 +210,38 @@ DATABASE_URL=postgres://postgres:postgres@localhost:5432/medusa-dtc-starter
 4. Run backend migrations:
 
 ```bash
-cd apps/backend
-pnpm medusa db:migrate
+pnpm --filter @dtc/backend medusa db:migrate
 ```
 
 5. Create an admin user:
 
 ```bash
-pnpm medusa user -e admin@test.com -p supersecret
+pnpm --filter @dtc/backend medusa user -e admin@test.com -p supersecret
 ```
 
-6. Start backend:
-
-```bash
-pnpm dev
-```
-
-7. In a separate terminal from the project root, set up storefront env:
+6. Set up storefront environment:
 
 ```bash
 cp apps/storefront/.env.template apps/storefront/.env.local
 ```
 
-8. Set your publishable key in `apps/storefront/.env.local`:
+7. Set your publishable key in `apps/storefront/.env.local`:
 
 ```env
 NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY=pk_...
 ```
 
-9. Start storefront:
-
-```bash
-cd apps/storefront
-pnpm dev
-```
-
-The storefront runs on `http://localhost:8000`.
-
-To run backend and storefront together from the root:
+8. Start local development from the project root:
 
 ```bash
 pnpm dev
 ```
+
+`pnpm dev` starts backend first and waits for `localhost:9000` before starting storefront.
+
+The backend runs on `http://localhost:9000` and the storefront runs on `http://localhost:8000`.
+
+Optional: run services individually from the root with `pnpm backend:dev` and `pnpm storefront:dev`.
 
 ## Resources
 
