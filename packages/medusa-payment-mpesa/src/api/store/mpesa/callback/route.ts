@@ -85,10 +85,13 @@ export const POST = async (
       if (mpesaReceiptNumber) {
         try {
           const [session] = await paymentService.listPaymentSessions(
+            // `data` is not in FilterablePaymentSessionProps typings but the
+            // underlying MikroORM-based repository does filter on JSON data
+            // fields at runtime.  Cast to `any` to bypass the type gap.
             {
               provider_id: "pp_mpesa_mpesa",
               data: { checkout_request_id: checkoutRequestId },
-            },
+            } as any,
             { take: 1 },
           );
           if (session) {
