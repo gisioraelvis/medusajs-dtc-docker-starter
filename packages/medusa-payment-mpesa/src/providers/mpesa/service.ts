@@ -38,6 +38,12 @@ export type MpesaOptions = {
   callback_base_url: string;
   initiator_name?: string;
   initiator_password?: string;
+  /**
+   * Optional shared secret appended as `?secret=<value>` to the Daraja
+   * callback URL.  Daraja echoes the full URL back in its POST, so the
+   * callback route can verify it.  Set MPESA_WEBHOOK_SECRET in your env.
+   */
+  webhook_secret?: string;
 };
 
 type InjectedDependencies = {
@@ -155,7 +161,10 @@ class MpesaPaymentProviderService extends AbstractPaymentProvider<MpesaOptions> 
     }
 
     const amountNumber = Number(amount);
-    const callbackUrl = `${this.options_.callback_base_url}/store/mpesa/callback`;
+    const baseCallbackUrl = `${this.options_.callback_base_url}/store/mpesa/callback`;
+    const callbackUrl = this.options_.webhook_secret
+      ? `${baseCallbackUrl}?secret=${encodeURIComponent(this.options_.webhook_secret)}`
+      : baseCallbackUrl;
     const accountRef =
       (input.data?.order_id as string | undefined) || "MedusaOrder";
 

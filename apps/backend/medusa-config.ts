@@ -38,6 +38,7 @@ module.exports = defineConfig({
                 "http://localhost:9000",
               initiator_name: process.env.MPESA_INITIATOR_NAME,
               initiator_password: process.env.MPESA_INITIATOR_PASSWORD,
+              webhook_secret: process.env.MPESA_WEBHOOK_SECRET,
             },
           },
         ],

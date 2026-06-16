@@ -19,9 +19,15 @@ export const POST = async (
   const logger = req.scope.resolve<Logger>("logger");
 
   const expectedSecret = process.env.MPESA_WEBHOOK_SECRET;
-  const providedSecret = req.headers["x-mpesa-webhook-secret"] as
-    | string
-    | undefined;
+
+  // Daraja echoes the full callback URL — including any query parameters — in
+  // the POST it sends.  We therefore check the `secret` query param (set when
+  // the STK Push was initiated) rather than a custom header (which Daraja does
+  // not support).  Header-based verification is kept as a fallback so that
+  // direct test calls (e.g. from curl / Postman) can still pass a secret.
+  const providedSecret =
+    (req.query?.secret as string | undefined) ||
+    (req.headers["x-mpesa-webhook-secret"] as string | undefined);
 
   if (expectedSecret && providedSecret !== expectedSecret) {
     logger.warn("[Mpesa] Callback rejected: invalid webhook secret");
