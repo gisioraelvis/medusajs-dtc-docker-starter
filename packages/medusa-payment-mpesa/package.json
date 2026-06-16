@@ -12,7 +12,8 @@
   "bugs": {
     "url": "https://github.com/gisioraelvis/medusajs-dtc-docker-starter/issues"
   },
-  "homepage": "https://github.com/gisioraelvis/medusajs-dtc-docker-starter/tree/main/packages/medusa-payment-mpesa#readme"
+  "homepage": "https://github.com/gisioraelvis/medusajs-dtc-docker-starter/tree/main/packages/medusa-payment-mpesa#readme",
+  "keywords": [
     "medusa-plugin-integration",
     "medusa-v2",
     "medusa-plugin-payment",

@@ -60,16 +60,22 @@ export const POST = async (
       },
     });
 
-    // Persist the M-Pesa receipt number into the payment session data so that
-    // refundPayment can use it later for B2B reversals.
-    // This block runs AFTER getWebhookActionAndData because the session is
-    // updated to "authorized" inside that call, making it findable.
+    // Persist result_code, result_desc, and (on success) the M-Pesa receipt
+    // number into the payment session data.
+    //
+    // Storing result_code lets authorizePayment short-circuit without an extra
+    // Daraja STK query on every order placement.  Storing mpesa_receipt_number
+    // lets refundPayment issue a B2B reversal later.
+    //
+    // This block runs AFTER getWebhookActionAndData because that call updates
+    // the session status (authorized / failed) first.
     const resultCode = String(stkCallback?.ResultCode ?? "");
+    const resultDesc = String(stkCallback?.ResultDesc ?? "");
     const checkoutRequestId = stkCallback?.CheckoutRequestID as
       | string
       | undefined;
 
-    if (resultCode === "0" && checkoutRequestId) {
+    if (checkoutRequestId) {
       const metadata = (
         stkCallback?.CallbackMetadata as Record<string, unknown> | undefined
       )?.Item as Array<{ Name: string; Value: unknown }> | undefined;
@@ -77,44 +83,48 @@ export const POST = async (
       const getMetaValue = (name: string): unknown =>
         metadata?.find((item) => item.Name === name)?.Value;
 
-      const mpesaReceiptNumber = getMetaValue("MpesaReceiptNumber") as
-        | string
-        | undefined;
-      const transactionDate = getMetaValue("TransactionDate");
+      const mpesaReceiptNumber =
+        resultCode === "0"
+          ? (getMetaValue("MpesaReceiptNumber") as string | undefined)
+          : undefined;
+      const transactionDate =
+        resultCode === "0" ? getMetaValue("TransactionDate") : undefined;
 
-      if (mpesaReceiptNumber) {
-        try {
-          const [session] = await paymentService.listPaymentSessions(
-            // `data` is not in FilterablePaymentSessionProps typings but the
-            // underlying MikroORM-based repository does filter on JSON data
-            // fields at runtime.  Cast to `any` to bypass the type gap.
-            {
-              provider_id: "pp_mpesa_mpesa",
-              data: { checkout_request_id: checkoutRequestId },
-            } as any,
-            { take: 1 },
-          );
-          if (session) {
-            await paymentService.updatePaymentSession({
-              id: session.id,
-              amount: session.amount,
-              currency_code: session.currency_code,
-              data: {
-                ...(session.data as Record<string, unknown>),
+      try {
+        const [session] = await paymentService.listPaymentSessions(
+          // `data` is not in FilterablePaymentSessionProps typings but the
+          // underlying MikroORM-based repository does filter on JSON data
+          // fields at runtime.  Cast to `any` to bypass the type gap.
+          {
+            provider_id: "pp_mpesa_mpesa",
+            data: { checkout_request_id: checkoutRequestId },
+          } as any,
+          { take: 1 },
+        );
+        if (session) {
+          await paymentService.updatePaymentSession({
+            id: session.id,
+            amount: session.amount,
+            currency_code: session.currency_code,
+            data: {
+              ...(session.data as Record<string, unknown>),
+              result_code: resultCode,
+              result_desc: resultDesc,
+              ...(mpesaReceiptNumber && {
                 mpesa_receipt_number: mpesaReceiptNumber,
                 transaction_date: String(transactionDate ?? ""),
-              },
-            });
-          } else {
-            logger.warn(
-              `[Mpesa] Session not found for CheckoutRequestID: ${checkoutRequestId} — receipt not stored`,
-            );
-          }
-        } catch (receiptErr) {
-          logger.error(
-            `[Mpesa] Failed to persist M-Pesa receipt number: ${(receiptErr as Error).message}`,
+              }),
+            },
+          });
+        } else {
+          logger.warn(
+            `[Mpesa] Session not found for CheckoutRequestID: ${checkoutRequestId} — callback data not stored`,
           );
         }
+      } catch (updateErr) {
+        logger.error(
+          `[Mpesa] Failed to persist callback data: ${(updateErr as Error).message}`,
+        );
       }
     }
 
