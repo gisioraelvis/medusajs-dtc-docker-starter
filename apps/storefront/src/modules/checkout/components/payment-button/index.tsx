@@ -213,7 +213,9 @@ const MpesaPaymentButton = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [pollLabel, setPollLabel] = useState<string | null>(null)
 
-  const session = cart.payment_collection?.payment_sessions?.[0]
+  const session = cart.payment_collection?.payment_sessions?.find(
+    (s) => s.status === "pending"
+  )
   const checkoutRequestId = (session?.data as Record<string, unknown>)
     ?.checkout_request_id as string | undefined
 
