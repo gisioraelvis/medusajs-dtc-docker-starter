@@ -68,13 +68,12 @@ export const POST = async (
 
       if (mpesaReceiptNumber) {
         try {
-          const sessions = await paymentService.listPaymentSessions({
-            provider_id: "pp_mpesa_mpesa",
-          });
-          const session = sessions.find(
-            (s) =>
-              (s.data as Record<string, unknown>)?.checkout_request_id ===
-              checkoutRequestId,
+          const [session] = await paymentService.listPaymentSessions(
+            {
+              provider_id: "pp_mpesa_mpesa",
+              data: { checkout_request_id: checkoutRequestId },
+            },
+            { take: 1 },
           );
           if (session) {
             await paymentService.updatePaymentSession({
