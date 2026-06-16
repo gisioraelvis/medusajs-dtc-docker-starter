@@ -112,8 +112,14 @@ const Payment = ({
       const shouldInputCard =
         isStripeLike(selectedPaymentMethod) && !activeSession
 
+      const sessionPhoneNumber = (
+        activeSession?.data as Record<string, unknown>
+      )?.phone_number as string | undefined
+
       const checkActiveSession =
-        activeSession?.provider_id === selectedPaymentMethod
+        activeSession?.provider_id === selectedPaymentMethod &&
+        (!isMpesa(selectedPaymentMethod) ||
+          sessionPhoneNumber === mpesaPhone)
 
       if (!checkActiveSession) {
         await initiatePaymentSession(cart, {
