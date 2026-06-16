@@ -15,22 +15,19 @@ import { MpesaClient } from "../../../../../providers/mpesa/client";
  * phone prompt was completed. The checkoutRequestId is a UUID-like opaque value
  * issued by Safaricom and is not guessable in practice.
  */
-export const GET = async (
-  req: MedusaRequest,
-  res: MedusaResponse,
-): Promise<void> => {
-  const { checkoutRequestId } = req.params as { checkoutRequestId: string };
-  const logger = req.scope.resolve<Logger>("logger");
 
-  // checkoutRequestId is always provided by the router since it's in the path,
-  // but guard against empty strings just in case
-  if (!checkoutRequestId?.trim()) {
-    throw new MedusaError(
-      MedusaError.Types.INVALID_DATA,
-      "checkoutRequestId path parameter is required",
-    );
-  }
+// ---------------------------------------------------------------------------
+// Module-scoped MpesaClient singleton
+// ---------------------------------------------------------------------------
+// A single instance is shared across all requests so that the in-process
+// OAuth token cache is reused, avoiding a fresh Daraja token fetch on every
+// poll call.  The instance is (re-)created only when the env vars change
+// (which only happens on process restart in practice).
+// ---------------------------------------------------------------------------
+let _clientSingleton: MpesaClient | null = null;
+let _clientConfigKey = "";
 
+function getClient(logger: Logger): MpesaClient {
   const consumerKey = process.env.MPESA_CONSUMER_KEY;
   const consumerSecret = process.env.MPESA_CONSUMER_SECRET;
   const businessShortCode = process.env.MPESA_BUSINESS_SHORT_CODE;
@@ -48,13 +45,10 @@ export const GET = async (
     );
   }
 
-  try {
-    // Re-use the payment module's registered provider options via process.env.
-    // NOTE: A new MpesaClient is constructed here because the provider service
-    // instance is not directly resolvable from the API route scope. The OAuth
-    // token cache is local to this instance; for high-traffic deployments, consider
-    // sharing the client via a module-scoped singleton.
-    const client = new MpesaClient(
+  // Invalidate the cached client if any env var has changed
+  const configKey = `${consumerKey}|${consumerSecret}|${businessShortCode}|${passKey}|${environment}`;
+  if (!_clientSingleton || _clientConfigKey !== configKey) {
+    _clientSingleton = new MpesaClient(
       {
         consumer_key: consumerKey,
         consumer_secret: consumerSecret,
@@ -64,7 +58,75 @@ export const GET = async (
       },
       logger,
     );
+    _clientConfigKey = configKey;
+  }
 
+  return _clientSingleton;
+}
+
+// ---------------------------------------------------------------------------
+// Simple IP-based rate limiter
+// ---------------------------------------------------------------------------
+// Limits each IP to RATE_LIMIT_MAX_REQUESTS calls within RATE_LIMIT_WINDOW_MS.
+// Uses an in-memory Map; entries are pruned as windows expire so memory does
+// not grow unboundedly.
+// ---------------------------------------------------------------------------
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 30; // 30 polls/min per IP (10 s × 3 s interval)
+
+interface RateLimitEntry {
+  count: number;
+  windowStart: number;
+}
+
+const rateLimitMap = new Map<string, RateLimitEntry>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+
+  if (!entry || now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    // Start a fresh window
+    rateLimitMap.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+
+  entry.count += 1;
+  if (entry.count > RATE_LIMIT_MAX_REQUESTS) {
+    return true;
+  }
+  return false;
+}
+
+export const GET = async (
+  req: MedusaRequest,
+  res: MedusaResponse,
+): Promise<void> => {
+  const { checkoutRequestId } = req.params as { checkoutRequestId: string };
+  const logger = req.scope.resolve<Logger>("logger");
+
+  // checkoutRequestId is always provided by the router since it's in the path,
+  // but guard against empty strings just in case
+  if (!checkoutRequestId?.trim()) {
+    throw new MedusaError(
+      MedusaError.Types.INVALID_DATA,
+      "checkoutRequestId path parameter is required",
+    );
+  }
+
+  // Enforce per-IP rate limit to prevent Daraja API abuse
+  const clientIp =
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+    req.socket?.remoteAddress ||
+    "unknown";
+  if (isRateLimited(clientIp)) {
+    res.status(429).json({ message: "Too many requests. Please slow down." });
+    return;
+  }
+
+  const client = getClient(logger);
+
+  try {
     const result = await client.stkQuery(checkoutRequestId);
 
     let status: "paid" | "pending" | "cancelled" | "error";
