@@ -18,9 +18,19 @@ export const POST = async (
 ): Promise<void> => {
   const logger = req.scope.resolve<Logger>("logger");
 
+  const expectedSecret = process.env.MPESA_WEBHOOK_SECRET;
+  const providedSecret = req.headers["x-mpesa-webhook-secret"] as
+    | string
+    | undefined;
+
+  if (expectedSecret && providedSecret !== expectedSecret) {
+    logger.warn("[Mpesa] Callback rejected: invalid webhook secret");
+    res.status(401).json({ ResultCode: 1, ResultDesc: "Unauthorized" });
+    return;
+  }
+
   try {
     const body = req.body as Record<string, unknown>;
-
     // Log only non-PII identifiers — never log the full body (contains phone, amount, receipt)
     const stkCallback = (body?.Body as Record<string, unknown> | undefined)
       ?.stkCallback as Record<string, unknown> | undefined;
