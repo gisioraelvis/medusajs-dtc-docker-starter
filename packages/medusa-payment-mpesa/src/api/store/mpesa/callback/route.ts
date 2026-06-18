@@ -20,11 +20,10 @@ export const POST = async (
 
   const expectedSecret = process.env.MPESA_WEBHOOK_SECRET;
 
-  // Daraja echoes the full callback URL — including any query parameters — in
-  // the POST it sends.  We therefore check the `secret` query param (set when
-  // the STK Push was initiated) rather than a custom header (which Daraja does
-  // not support).  Header-based verification is kept as a fallback so that
-  // direct test calls (e.g. from curl / Postman) can still pass a secret.
+  // Daraja echoes the full callback URL — including any query parameters — in the POST it sends.  
+  // Check the `secret` query param set at STK Push (Daraja does not support custom headers).  
+  // Header-based verification is kept as a fallback so that direct test calls can still pass a secret.
+  // (e.g. from curl / Postman)
   const providedSecret =
     (req.query?.secret as string | undefined) ||
     (req.headers["x-mpesa-webhook-secret"] as string | undefined);
@@ -37,20 +36,20 @@ export const POST = async (
 
   try {
     const body = req.body as Record<string, unknown>;
-    // Log only non-PII identifiers — never log the full body (contains phone, amount, receipt)
+    // Log only non-PII identifiers (the full body contains phone, amount, receipt)
     const stkCallback = (body?.Body as Record<string, unknown> | undefined)
       ?.stkCallback as Record<string, unknown> | undefined;
     logger.info(
-      `[Mpesa] Callback received — CheckoutRequestID: ${stkCallback?.CheckoutRequestID ?? "unknown"}, ResultCode: ${stkCallback?.ResultCode ?? "unknown"}`,
+      `[Mpesa] Callback received — CheckoutRequestID: ${stkCallback?.CheckoutRequestID ?? "unknown"}, 
+       ResultCode: ${stkCallback?.ResultCode ?? "unknown"}`,
     );
 
     const paymentService = req.scope.resolve<IPaymentModuleService>(
       Modules.PAYMENT,
     );
 
-    // Delegate to the Payment Module's webhook handler.
-    // Internally this calls getWebhookActionAndData on the mpesa provider and
-    // synchronously updates the payment session status (authorized / failed).
+    // Delegate to the mpesa provider webhook handler.
+    // Synchronously updates the payment session status (authorized / failed).
     await paymentService.getWebhookActionAndData({
       provider: "pp_mpesa_mpesa",
       payload: {
@@ -60,15 +59,13 @@ export const POST = async (
       },
     });
 
-    // Persist result_code, result_desc, and (on success) the M-Pesa receipt
-    // number into the payment session data.
+    // Persist result_code, result_desc and 
+    // on success the M-Pesa receipt number into the payment session data.
     //
-    // Storing result_code lets authorizePayment short-circuit without an extra
-    // Daraja STK query on every order placement.  Storing mpesa_receipt_number
-    // lets refundPayment issue a B2B reversal later.
+    // Storing result_code lets authorizePayment short-circuit without an extra Daraja STK query on every order placement.  
+    // Storing mpesa_receipt_number lets refundPayment issue a B2B reversal later.
     //
-    // This block runs AFTER getWebhookActionAndData because that call updates
-    // the session status (authorized / failed) first.
+    // Runs AFTER getWebhookActionAndData that updates the session status (authorized / failed) first.
     const resultCode = String(stkCallback?.ResultCode ?? "");
     const resultDesc = String(stkCallback?.ResultDesc ?? "");
     const checkoutRequestId = stkCallback?.CheckoutRequestID as
@@ -92,13 +89,10 @@ export const POST = async (
 
       try {
         const [session] = await paymentService.listPaymentSessions(
-          // `data` is not in FilterablePaymentSessionProps typings but the
-          // underlying MikroORM-based repository does filter on JSON data
-          // fields at runtime.  Cast to `any` to bypass the type gap.
           {
             provider_id: "pp_mpesa_mpesa",
             data: { checkout_request_id: checkoutRequestId },
-          } as any,
+          } as any, // to any for ORM JSON field `data` filtering at runtime
           { take: 1 },
         );
         if (session) {

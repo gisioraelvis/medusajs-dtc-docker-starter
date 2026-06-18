@@ -34,15 +34,11 @@ export type MpesaOptions = {
   business_short_code: string;
   pass_key: string;
   environment: "sandbox" | "production";
-  /** Base URL of this Medusa backend, used to build the STK Push callback URL */
+  /** Backend base URL for STK Push callback */
   callback_base_url: string;
   initiator_name?: string;
   initiator_password?: string;
-  /**
-   * Optional shared secret appended as `?secret=<value>` to the Daraja
-   * callback URL.  Daraja echoes the full URL back in its POST, so the
-   * callback route can verify it.  Set MPESA_WEBHOOK_SECRET in your env.
-   */
+  /** Optional secret env for webhook verification */
   webhook_secret?: string;
 };
 
@@ -139,7 +135,7 @@ class MpesaPaymentProviderService extends AbstractPaymentProvider<MpesaOptions> 
     const { amount, currency_code, context } = input;
 
     // phone_number should be passed via input.data from the storefront
-    // e.g.: sdk.store.payment.initiatePaymentSession(cart, { provider_id: "pp_mpesa_mpesa", data: { phone_number: "254712345678" } })
+    // e.g. sdk.store.payment.initiatePaymentSession(cart, { provider_id: "pp_mpesa_mpesa", data: { phone_number: "254712345678" } })
     const rawPhone =
       (input.data?.phone_number as string | undefined) ??
       context?.customer?.phone ??
@@ -156,7 +152,7 @@ class MpesaPaymentProviderService extends AbstractPaymentProvider<MpesaOptions> 
     if (!phoneNumber) {
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
-        `Invalid phone number "${rawPhone}". Expected format: 254XXXXXXXXX, 07XXXXXXXXX, or +254XXXXXXXXX`,
+        `Invalid phone number "${rawPhone}". Expected format: 07XXXXXXXX, 7XXXXXXXX, 011XXXXXXXX, or 2547XXXXXXXX`,
       );
     }
 
@@ -202,7 +198,7 @@ class MpesaPaymentProviderService extends AbstractPaymentProvider<MpesaOptions> 
 
   /**
    * Called when the customer completes checkout.
-   * Queries Daraja to verify the STK Push was paid.
+   * Queries Daraja to verify the STK Push was successful.
    */
   async authorizePayment(
     input: AuthorizePaymentInput,
@@ -287,8 +283,7 @@ class MpesaPaymentProviderService extends AbstractPaymentProvider<MpesaOptions> 
   }
 
   /**
-   * Cancel: STK Push cannot be cancelled after initiation.
-   * We record the cancellation locally.
+   * Record cancellation locally, STK Push cannot be cancelled after initiation.
    */
   async cancelPayment(input: CancelPaymentInput): Promise<CancelPaymentOutput> {
     return { data: { ...(input.data ?? {}), cancelled: true } };
@@ -428,9 +423,8 @@ class MpesaPaymentProviderService extends AbstractPaymentProvider<MpesaOptions> 
 
       const amount = Number(getMetaValue("Amount") ?? 0);
 
-      // The M-Pesa receipt number, transaction date, and phone are persisted
-      // by the callback route (route.ts) after this call resolves, because
-      // WebhookActionResult only accepts session_id and amount.
+      // The M-Pesa receipt number, transaction date and phone are persisted by
+      // the callback route after this call resolves - WebhookActionResult only accepts session_id and amount.
       return {
         action: "authorized",
         data: {

@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Medusa v2](https://img.shields.io/badge/Medusa-v2-purple)](https://medusajs.com)
 
-A [Medusa v2](https://medusajs.com) payment provider plugin for [M-Pesa Daraja API](https://developer.safaricom.co.ke) (Safaricom Kenya).
+A [Medusa v2 Payment Provider](https://docs.medusajs.com/resources/commerce-modules/payment) plugin for [M-Pesa Daraja API](https://developer.safaricom.co.ke/apis) (Safaricom Kenya).
 
 **Features:**
 
@@ -102,44 +102,45 @@ module.exports = defineConfig({
 ### 2. Set environment variables
 
 ```bash
-# Daraja app credentials — https://developer.safaricom.co.ke
+# Required
 MPESA_CONSUMER_KEY=your_consumer_key
 MPESA_CONSUMER_SECRET=your_consumer_secret
-
-# Your Paybill or Till number
 MPESA_BUSINESS_SHORT_CODE=174379
-
-# Lipa Na M-Pesa Online passkey (from Daraja portal)
 MPESA_PASS_KEY=your_pass_key
-
-# "sandbox" or "production" — defaults to "sandbox"
-MPESA_ENVIRONMENT=sandbox
-
-# Publicly accessible HTTPS base URL of your Medusa backend.
-# Daraja will POST the STK result to: ${MPESA_CALLBACK_BASE_URL}/store/mpesa/callback
 MPESA_CALLBACK_BASE_URL=https://your-backend.example.com
 
-# Required only for reversals (refunds):
-MPESA_INITIATOR_NAME=testapi
-MPESA_INITIATOR_PASSWORD=Safaricom123
+# Optional
+MPESA_ENVIRONMENT=sandbox  # Default: "sandbox" | Options: "sandbox" or "production"
+MPESA_INITIATOR_NAME=testapi  # Required only for refunds
+MPESA_INITIATOR_PASSWORD=Safaricom123  # Required only for refunds
+MPESA_WEBHOOK_SECRET=supersecret  # Optional secret for webhook verification
 ```
 
-#### Environment variable reference
+> Create app at [Daraja Dashboard](https://developer.safaricom.co.ke/dashboard/myapps) and copy the credentials.
 
-| Variable                    | Required | Default   | Description                               |
-| --------------------------- | -------- | --------- | ----------------------------------------- |
-| `MPESA_CONSUMER_KEY`        | ✅       | —         | Daraja app consumer key                   |
-| `MPESA_CONSUMER_SECRET`     | ✅       | —         | Daraja app consumer secret                |
-| `MPESA_BUSINESS_SHORT_CODE` | ✅       | —         | Paybill or Till number                    |
-| `MPESA_PASS_KEY`            | ✅       | —         | Lipa Na M-Pesa Online passkey             |
-| `MPESA_CALLBACK_BASE_URL`   | ✅       | —         | Publicly reachable HTTPS backend URL      |
-| `MPESA_ENVIRONMENT`         | ⬜       | `sandbox` | `sandbox` or `production`                 |
-| `MPESA_INITIATOR_NAME`      | ⬜       | —         | Initiator username — required for refunds |
-| `MPESA_INITIATOR_PASSWORD`  | ⬜       | —         | Initiator password — required for refunds |
+### 3. Set up Kenya Region
 
-### 3. Add the provider to a Medusa Region
+1. Go to **Medusa Admin → Settings → [Regions](https://docs.medusajs.com/user-guide/settings/regions)**
+2. Click **Create**
+3. Configure the region:
+   - **Name**: Kenya
+   - **Currency**: KES (Kenyan Shilling)
+   - **Countries**: Add Kenya under the Countries section
+4. Configure tax and payment provider settings as needed
+5. Click **Save**
 
-After starting the backend, go to **Medusa Admin → Settings → Regions**, select the region where M-Pesa should be available, and add **M-Pesa** as a payment provider. The provider will appear at checkout only for carts in that region.
+### 4. Add M-Pesa Payment Provider to Kenya Region
+
+1. Go to **Medusa Admin → Settings → Regions → Kenya → Edit**
+2. Navigate to **Payment Providers**
+3. Add **M-Pesa** as a payment provider
+4. The M-Pesa provider will appear at checkout only for carts in the Kenya region
+
+### 5. Configure Tax Region for Kenya
+
+1. Go to **Medusa Admin → Settings → [Tax Regions](https://docs.medusajs.com/user-guide/settings/tax-regions)**
+2. Click **Create** to add a new tax region
+3. Configure for Kenya with the appropriate tax rates
 
 ---
 
@@ -188,7 +189,7 @@ The provider normalizes all inputs to the `254XXXXXXXXX` (12-digit) format requi
 | International `+254`   | `+254712345678` | `254712345678` |
 | International `254`    | `254712345678`  | `254712345678` |
 | 9-digit without prefix | `712345678`     | `254712345678` |
-| Landline prefix `01`   | `0112345678`    | `254112345678` |
+| New `01` prefix        | `0112345678`    | `254112345678` |
 
 > Numbers that don't match any of these patterns are rejected with a `400 Invalid Data` error.
 
@@ -210,7 +211,7 @@ await sdk.store.payment.initiatePaymentSession(cart, {
 
 ## API Routes (added automatically by the plugin)
 
-All four routes are registered automatically — no manual route setup required.
+All four public routes are registered automatically by the plugin without any manual configuration.
 
 | Method | Path                                     | Auth   | Description                       |
 | ------ | ---------------------------------------- | ------ | --------------------------------- |
@@ -219,8 +220,6 @@ All four routes are registered automatically — no manual route setup required.
 | `POST` | `/store/mpesa/reversal-result`           | Public | Daraja reversal result callback   |
 | `POST` | `/store/mpesa/reversal-timeout`          | Public | Daraja reversal timeout callback  |
 
-> **Why public?** Daraja POSTs callbacks directly from Safaricom's servers without auth headers. The `checkoutRequestId` is an opaque UUID-like value issued by Safaricom and is not guessable.
-
 Configure these URLs in your Daraja app settings:
 
 | Daraja Setting         | Value                                                           |
@@ -228,6 +227,8 @@ Configure these URLs in your Daraja app settings:
 | Callback URL           | `https://your-backend.example.com/store/mpesa/callback`         |
 | Result URL (reversals) | `https://your-backend.example.com/store/mpesa/reversal-result`  |
 | Queue Timeout URL      | `https://your-backend.example.com/store/mpesa/reversal-timeout` |
+
+> **Note:** The callback URLs must be publicly accessible HTTPS endpoints. For local development, use a tunneling service like [ngrok](https://ngrok.com).
 
 ---
 
@@ -296,7 +297,7 @@ if (status === "cancelled" || status === "error") {
 await placeOrder();
 ```
 
-> **Tip:** The status endpoint can also be called in a polling loop (e.g. every 3 s for up to 90 s) if you want to give the customer real-time feedback while they interact with the STK Push prompt, before they click "Place order" e.g. show a message like `"Waiting for M-Pesa payment… (6s / 90s)"` that updates every poll. Break early if status becomes `paid`, or abort if it becomes `cancelled`/`error`. If it reaches 90 s with no success, let the customer click "Place order" anyway — the final `authorizePayment` server-side will do one last status check to confirm before placing the order. See [`MpesaPaymentButton`](./apps/storefront/src/modules/checkout/components/payment-button/index.tsx) in storefront for reference implementation.
+> **Tip:** The status endpoint can also be called in a polling loop (e.g. every 3 s for up to 90 s) if you want to give the customer real-time feedback while they interact with the STK Push prompt, before they click "Place order" e.g. show a message like `"Waiting for M-Pesa payment… (6s / 90s)"` that updates every poll. Break early if status becomes `paid`, or abort if it becomes `cancelled`/`error`. If it reaches 90 s with no success, let the customer click "Place order" anyway — the final `authorizePayment` server-side will do one last status check to confirm before placing the order. See [`MpesaPaymentButton`](/apps/storefront/src/modules/checkout/components/payment-button/index.tsx) in storefront for reference implementation.
 
 ---
 
@@ -395,7 +396,7 @@ await sdk.store.payment.initiatePaymentSession(cart, {
 
 ## License
 
-MIT © [Your Name or Organization]
+MIT © Elvis Gisiora
 
 ---
 
