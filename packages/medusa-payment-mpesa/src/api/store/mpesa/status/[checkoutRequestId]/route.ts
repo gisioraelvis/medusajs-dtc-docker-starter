@@ -68,8 +68,7 @@ function getClient(logger: Logger): MpesaClient {
 // Simple IP-based rate limiter
 // ---------------------------------------------------------------------------
 // Limits each IP to RATE_LIMIT_MAX_REQUESTS calls within RATE_LIMIT_WINDOW_MS.
-// Uses an in-memory Map; entries are pruned as windows expire so memory does
-// not grow unboundedly.
+// Uses an in-memory Map; entries are pruned as windows expire so memory does not grow unboundedly.
 // ---------------------------------------------------------------------------
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 30; // 30 polls/min per IP (10 s × 3 s interval)
@@ -105,8 +104,7 @@ export const GET = async (
   const { checkoutRequestId } = req.params as { checkoutRequestId: string };
   const logger = req.scope.resolve<Logger>("logger");
 
-  // checkoutRequestId is always provided by the router since it's in the path,
-  // but guard against empty strings just in case
+  // Empty guard on checkoutRequestId from route path
   if (!checkoutRequestId?.trim()) {
     throw new MedusaError(
       MedusaError.Types.INVALID_DATA,
@@ -153,8 +151,8 @@ export const GET = async (
       result_desc: result.ResultDesc,
     });
   } catch (err) {
-    // Daraja returns an error body (not 200) when the STK transaction is not yet
-    // settled. Treat as "pending" so the storefront can retry.
+    // Daraja returns an error body (not 200) when the STK transaction is not yet settled. 
+    // Treat as "pending" so the storefront can retry.
     logger.warn(
       `[Mpesa] STK status query inconclusive for ${checkoutRequestId}: ${(err as Error).message}`,
     );

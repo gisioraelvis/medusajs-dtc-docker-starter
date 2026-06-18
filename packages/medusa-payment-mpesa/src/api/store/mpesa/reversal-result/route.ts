@@ -4,9 +4,8 @@ import type { Logger } from "@medusajs/framework/types";
 /**
  * POST /store/mpesa/reversal-result
  *
- * Receives the result of a B2B/reversal request from Daraja.
- * Logs the result. Further processing (e.g., marking the refund complete)
- * can be added here as needed.
+ * Receives and logs the result of a B2B/reversal request from Daraja.
+ * Further processing (e.g., marking the refund complete) can be added here as needed.
  */
 export const POST = async (
   req: MedusaRequest,
