@@ -1,6 +1,6 @@
 {
   "name": "medusa-payment-mpesa",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Medusa v2 M-Pesa (Safaricom Daraja) payment provider — STK Push, polling and refunds",
   "author": "Elvis Gisiora <gisioraelvis20@gmail.com>",
   "license": "MIT",
